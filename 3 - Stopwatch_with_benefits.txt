@@ -1,0 +1,278 @@
+;-------------------------------------------------------------
+; T - to start/stop clock
+; R - to reset clock
+; S - to split time
+;-------------------------------------------------------------
+;
+;-------------------------------------------------------------
+; Code: Clock Interrupt Handler
+;-------------------------------------------------------------
+
+PUSH {R0}                           ; Preserve register R0
+MOV R0, #secondsCounter             ; Save address of secondsCounter function
+STR R0, .ClockISR                   ; Store address in .ClockISR variable
+MOV R0, #1000                       ; Set clock interrupt frequency to 1000ms (1s)
+STR R0, .ClockInterruptFrequency    ; Store frequency in .ClockInterruptFrequency variable
+
+;-------------------------------------------------------------
+; Code: Keyboard Interrupt Handler
+;-------------------------------------------------------------
+
+MOV R0, #keyboardHandler             ; Save address of keyboardHandler function
+STR R0, .KeyboardISR                 ; Assign keyboardHandler to .KeyboardISR variable
+MOV R0, #1                          ; Enable keyboard interrupt mask
+STR R0, .KeyboardMask               ; Store mask value in .KeyboardMask variable
+
+;-------------------------------------------------------------
+; Code: Enable both interrupts
+;-------------------------------------------------------------
+
+MOV R0, #3                          ; Enable clock and keyboard interrupts
+STR R0, .InterruptRegister          ; Store value in .InterruptRegister variable
+POP {R0}                            ; Restore register R0
+
+;-------------------------------------------------------------
+; Code: Set initial values for registers
+;-------------------------------------------------------------
+
+MOV R1 , #0                          ; Initialize minutes (R1) to 0
+MOV R2 , #0                          ; Initialize seconds (R2) to 0
+MOV R3 , #1                          ; Initialize clock state (R3) to 1 (running)
+
+;-------------------------------------------------------------
+; Function: mainProgram
+;-------------------------------------------------------------
+
+mainProgram:                        ;
+    B mainProgram                   ; Infinite loop to keep the program running
+
+;-------------------------------------------------------------
+; Function: writeOut
+; Purpose: Display the status and time information
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+writeOut:
+    push {R0-R3, LR}                 ; Preserve registers and LR
+    BL writeStatus                   ; Call writeStatus function to display status
+    BL writeTime                     ; Call writeTime function to display time
+    pop {R0-R3, LR}                  ; Restore registers and LR
+    RET                              ; Return from the function
+
+;-------------------------------------------------------------
+; Function: writeStatus
+; Purpose: Display the current clock status
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+writeStatus:
+    push {R3, LR}                   ; Preserve R3 and LR
+    BL newline                      ; Print a new lines
+    MOV R0, #instructions           ; Store address of instructions string in R0
+    STR R0, .WriteString            ; Print instructions
+    CMP R3, #0                      ; Check if clock state is 0 (stopped)
+    BEQ writeStopped                ; If stopped, branch to writeStopped
+    MOV R3, #startmsg               ; If running, set status message to startmsg
+    B writeStatusEnd                ; Branch to writeStatusEnd
+writeStopped:                       ;
+    MOV R3, #stopmsg                ; If stopped, set status message to stopmsg
+writeStatusEnd:                     ;
+    STR R3, .WriteString            ; Print status message
+    pop {R3, LR}                    ; Restore R3 and LR
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
+; Function: newline
+; Purpose: Print a new line
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+newline:
+    push {R0}                       ; Preserve register R0
+    MOV R0, #0x0A                   ; Store ASCII code for newline character in R0
+    STR R0, .WriteChar              ; Print newline character
+    STR R0, .WriteChar              ; Print newline character (twice for formatting)
+    STR R0, .WriteChar              ; Print newline character (twice for formatting)
+    pop {R0}                        ; Restore register R0
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
+; Function: writeTime
+; Purpose: Display the elapsed time and split time
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+writeTime:
+    push {R0-R6, LR}                ; Preserve R0 and LR
+    MOV R0, #elepsedtime            ; Store address of elepsedtime string in R0
+    STR R0, .WriteString            ; Print "Elepsed Time: "
+    MOV R0, R1                      ; Store minutes (R1) in R0
+    STR R0, .WriteUnsignedNum       ; Print minutes as unsigned number
+    MOV R0, #58                     ; Store ASCII code for ':' in R0
+    STR R0, .WriteChar              ; Print ':'
+    MOV R0, R2                      ; Store seconds (R2) in R0
+    STR R0, .WriteUnsignedNum       ; Print seconds as unsigned number
+    MOV R0, #09                      ; Store ASCII code for '\t' (tab) in R0
+    STR R0, .WriteChar              ; Print '\t' (tab)
+    MOV R0, #splittime              ; Store address of splittime string in R0
+    STR R0, .WriteString            ; Print "Split Time  : "
+    
+    MOV R5, #splitcounter           
+    LDRB R6, [R5]
+
+    MOV R0, #minutearray
+    LDRB R4, [R0+R6]                ; Store split minutes (minutearray) in R0
+    STR R4, .WriteUnsignedNum       ; Print split minutes as unsigned number
+    MOV R0, #58                     ; Store ASCII code for ':' in R0
+    STR R0, .WriteChar              ; Print ':'
+    MOV R0, #seccondsarray
+    LDRB R4, [R0+R6]                ; Store split seconds (seccondsarray) in R0
+    STR R4, .WriteUnsignedNum       ; Print split seconds as unsigned number
+    pop {R0-R4, LR}                 ; Restore R0 and LR
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
+; Function: updateTime
+; Purpose: Update the elapsed time
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+updateTime:
+    ADD R2, R2, #1                  ; Increment seconds (R2) by 1
+    CMP R2, #60                     ; Compare seconds (R2) with 60
+    BNE notSixty                    ; If not equal to 60, branch to notSixty
+    ADD R1, R1, #1                  ; Increment minutes (R1) by 1
+    MOV R2, #0                      ; Reset seconds (R2) to 0
+notSixty:                           ;
+    push {R0-R3, LR}                ; Preserve registers and LR
+    BL writeOut                     ; Call writeOut function to display updated time
+    pop {R0-R3, LR}                 ; Restore registers and LR
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
+; Function: toggleClock
+; Purpose: Toggle the clock state (start/stop)
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+toggleClock:
+    CMP R3, #0                      ; Check current clock state (R3)
+    BNE stop                        ; If not equal to 0, branch to stop
+    MOV R3, #1                      ; If equal to 0, set clock state to 1 (running)
+    B toggleClockEnd                ; Branch to toggleClockEnd
+stop:                               ;
+    MOV R3, #0                      ; If not equal to 0, set clock state to 0 (stopped)
+toggleClockEnd:                     ;
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
+; Function: resetClock
+; Purpose: Reset the clock (set minutes and seconds to 0)
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+resetClock:
+    MOV R1, #0                      ; Set minutes (R1) to 0
+    MOV R2, #0                      ; Set seconds (R2) to 0
+    MOV R0, #minutearray            ; Store array base address for minutes
+    STRB R1, [R0]                   ; Store value of R1 into minutearray
+    MOV R0, #seccondsarray          ; Store array base address for minutes
+    STRB R2, [R0]                   ; Store value of R1 into minutearray
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
+; Function: splitTime
+; Purpose: Record the split time
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+splitTime:
+    CMP R3, #0                      ; Check current clock state (R3)
+    BEQ clockIsStopped              ; If equal to 0 (stopped), branch to splitTimeEnd
+    push {R0-R4}                    ; Preserve registers R0-R3
+
+    MOV R0, #splitcounter           
+    LDRB R4, [R0]
+    
+    MOV R0, #minutearray            ; Store array base address for minutes
+    STRB R1, [R0+R4]                   ; Store value of R1 into minutearray
+    MOV R0, #seccondsarray          ; Store array base address for minutes
+    STRB R2, [R0+R4]                   ; Store value of R1 into minutearray
+
+    ADD R4, R4, #1
+    MOV R0, #splitcounter
+    STRB R4, [R0]
+
+    pop {R0-R4}                     ; Restore registers R0-R3
+clockIsStopped:                     ;
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
+; Code: Interrupt handlers
+;-------------------------------------------------------------
+;-------------------------------------------------------------
+; Function: secondsCounter
+; Purpose: Handle the clock interrupt and update the time
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+secondsCounter:
+    CMP R3, #1                      ; Check current clock state (R3)
+    BNE secondsCounterEnd           ; If not equal to 1 (running), branch to secondsCounterEnd
+    push {R3, R4, LR}               ; Preserve R3, R4, and LR
+    BL updateTime                   ; Call updateTime function to update the time
+    pop {R3, R4, LR}                ; Restore R3, R4, and LR
+secondsCounterEnd:                  ;
+    RFE                             ; Return from the exception
+
+;-------------------------------------------------------------
+; Function: keyboardHandler
+; Purpose: Handle the keyboard interrupt and perform actions based on pressed keys
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+keyboardHandler:
+    PUSH {R0}                       ; Preserve register R0
+    LDR R0, .LastKey                ; Get the last pressed key
+    CMP R0, #0x54                   ; Compare with ASCII code for 'T'
+    BNE elif1                       ; If not equal, branch to elif1
+    BL toggleClock                  ; If equal, call toggleClock function to toggle the clock
+    B keyboardHandlerEnd            ; Branch to keyboardHandlerEnd
+elif1:                              ;
+    CMP R0, #0x52                   ; Compare with ASCII code for 'R'
+    BNE elif2                       ; If not equal, branch to elif2
+    BL resetClock                   ; If equal, call resetClock function to reset the clock
+    B keyboardHandlerEnd            ; Branch to keyboardHandlerEnd
+elif2:                              ;
+    CMP R0, #0x53                   ; Compare with ASCII code for 'S'
+    BNE keyboardHandlerEnd          ; If not equal, branch to keyboardHandlerEnd
+    BL splitTime                    ; If equal, call splitTime function to record the split time
+keyboardHandlerEnd:                 ;
+    BL writeOut                     ;
+    POP {R0}                        ; Restore register R0
+    RFE                             ; Return from the exception
+
+;-------------------------------------------------------------
+; Code: Label definations
+;-------------------------------------------------------------
+startmsg:       .ASCIZ ">Clock Started!!\n"
+stopmsg:        .ASCIZ ">Clock Stopped!!\n"
+instructions:   .ASCIZ "'T': Toggle, 'R': Reset, 'S' Split\n"
+elepsedtime:    .ASCIZ "Elepsed Time: "
+splittime:      .ASCIZ "\nSplit Time  : "
+minutearray:    .BLOCK 128
+seccondsarray:  .BLOCK 128
+splitcounter:   .BLOCK 1
+;-------------------------------------------------------------
+; Code: END
+;-------------------------------------------------------------
