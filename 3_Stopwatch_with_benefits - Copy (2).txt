@@ -38,6 +38,8 @@ POP {R0}                            ; Restore register R0
 MOV R1 , #0                          ; Initialize minutes (R1) to 0
 MOV R2 , #0                          ; Initialize seconds (R2) to 0
 MOV R3 , #1                          ; Initialize clock state (R3) to 1 (running)
+MOV R4 , #0                          ; Initialize split minutes (R4) to 0
+MOV R5 , #0                          ; Initialize split seconds (R5) to 0
 
 ;-------------------------------------------------------------
 ; Function: mainProgram
@@ -107,7 +109,7 @@ newline:
 ;-------------------------------------------------------------
 
 writeTime:
-    push {R0-R4, LR}                ; Preserve R0 and LR
+    push {R0, LR}                   ; Preserve R0 and LR
     MOV R0, #elepsedtime            ; Store address of elepsedtime string in R0
     STR R0, .WriteString            ; Print "Elepsed Time: "
     MOV R0, R1                      ; Store minutes (R1) in R0
@@ -120,15 +122,13 @@ writeTime:
     STR R0, .WriteChar              ; Print '\t' (tab)
     MOV R0, #splittime              ; Store address of splittime string in R0
     STR R0, .WriteString            ; Print "Split Time  : "
-    MOV R0, #minutearray
-    LDRB R4, [R0]                   ; Store split minutes (minutearray) in R0
-    STR R4, .WriteUnsignedNum       ; Print split minutes as unsigned number
+    MOV R0, R4                      ; Store split minutes (R4) in R0
+    STR R0, .WriteUnsignedNum       ; Print split minutes as unsigned number
     MOV R0, #58                     ; Store ASCII code for ':' in R0
     STR R0, .WriteChar              ; Print ':'
-    MOV R0, #seccondsarray
-    LDRB R4, [R0]                   ; Store split seconds (seccondsarray) in R0
-    STR R4, .WriteUnsignedNum       ; Print split seconds as unsigned number
-    pop {R0-R4, LR}                 ; Restore R0 and LR
+    MOV R0, R5                      ; Store split seconds (R5) in R0
+    STR R0, .WriteUnsignedNum       ; Print split seconds as unsigned number
+    pop {R0, LR}                    ; Restore R0 and LR
     RET                             ; Return from the function
 
 ;-------------------------------------------------------------
@@ -177,10 +177,8 @@ toggleClockEnd:                     ;
 resetClock:
     MOV R1, #0                      ; Set minutes (R1) to 0
     MOV R2, #0                      ; Set seconds (R2) to 0
-    MOV R0, #minutearray            ; Store array base address for minutes
-    STRB R1, [R0]                   ; Store value of R1 into minutearray
-    MOV R0, #seccondsarray          ; Store array base address for minutes
-    STRB R2, [R0]                   ; Store value of R1 into minutearray
+    MOV R4, #0                      ; Set split minutes (R4) to 0
+    MOV R5, #0                      ; Set split seconds (R5) to 0
     RET                             ; Return from the function
 
 ;-------------------------------------------------------------
@@ -194,13 +192,8 @@ splitTime:
     CMP R3, #0                      ; Check current clock state (R3)
     BEQ splitTimeEnd                ; If equal to 0 (stopped), branch to splitTimeEnd
     push {R0-R3}                    ; Preserve registers R0-R3
-
-    MOV R0, #minutearray            ; Store array base address for minutes
-    STRB R1, [R0]                   ; Store value of R1 into minutearray
-
-    MOV R0, #seccondsarray          ; Store array base address for minutes
-    STRB R2, [R0]                   ; Store value of R1 into minutearray
-    
+    MOV R4, R1                      ; Store current minutes (R1) in split minutes (R4)
+    MOV R5, R2                      ; Store current seconds (R2) in split seconds (R5)
     pop {R0-R3}                     ; Restore registers R0-R3
 splitTimeEnd:                       ;
     RET                             ; Return from the function
