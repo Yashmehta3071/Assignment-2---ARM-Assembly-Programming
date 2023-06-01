@@ -107,7 +107,7 @@ newline:
 ;-------------------------------------------------------------
 
 writeTime:
-    push {R0-R6, LR}                ; Preserve R0 and LR
+    push {R0-R4, LR}                ; Preserve R0 and LR
     MOV R0, #elepsedtime            ; Store address of elepsedtime string in R0
     STR R0, .WriteString            ; Print "Elepsed Time: "
     MOV R0, R1                      ; Store minutes (R1) in R0
@@ -120,17 +120,13 @@ writeTime:
     STR R0, .WriteChar              ; Print '\t' (tab)
     MOV R0, #splittime              ; Store address of splittime string in R0
     STR R0, .WriteString            ; Print "Split Time  : "
-    
-    MOV R5, #splitcounter           
-    LDRB R6, [R5]
-
     MOV R0, #minutearray
-    LDRB R4, [R0+R6]                ; Store split minutes (minutearray) in R0
+    LDRB R4, [R0]                   ; Store split minutes (minutearray) in R0
     STR R4, .WriteUnsignedNum       ; Print split minutes as unsigned number
     MOV R0, #58                     ; Store ASCII code for ':' in R0
     STR R0, .WriteChar              ; Print ':'
     MOV R0, #seccondsarray
-    LDRB R4, [R0+R6]                ; Store split seconds (seccondsarray) in R0
+    LDRB R4, [R0]                   ; Store split seconds (seccondsarray) in R0
     STR R4, .WriteUnsignedNum       ; Print split seconds as unsigned number
     pop {R0-R4, LR}                 ; Restore R0 and LR
     RET                             ; Return from the function
@@ -196,23 +192,14 @@ resetClock:
 
 splitTime:
     CMP R3, #0                      ; Check current clock state (R3)
-    BEQ clockIsStopped              ; If equal to 0 (stopped), branch to splitTimeEnd
-    push {R0-R4}                    ; Preserve registers R0-R3
-
-    MOV R0, #splitcounter           
-    LDRB R4, [R0]
-    
+    BEQ splitTimeEnd                ; If equal to 0 (stopped), branch to splitTimeEnd
+    push {R0-R3}                    ; Preserve registers R0-R3
     MOV R0, #minutearray            ; Store array base address for minutes
-    STRB R1, [R0+R4]                   ; Store value of R1 into minutearray
+    STRB R1, [R0]                   ; Store value of R1 into minutearray
     MOV R0, #seccondsarray          ; Store array base address for minutes
-    STRB R2, [R0+R4]                   ; Store value of R1 into minutearray
-
-    ADD R4, R4, #1
-    MOV R0, #splitcounter
-    STRB R4, [R0]
-
-    pop {R0-R4}                     ; Restore registers R0-R3
-clockIsStopped:                     ;
+    STRB R2, [R0]                   ; Store value of R1 into minutearray
+    pop {R0-R3}                     ; Restore registers R0-R3
+splitTimeEnd:                       ;
     RET                             ; Return from the function
 
 ;-------------------------------------------------------------
@@ -272,7 +259,6 @@ elepsedtime:    .ASCIZ "Elepsed Time: "
 splittime:      .ASCIZ "\nSplit Time  : "
 minutearray:    .BLOCK 128
 seccondsarray:  .BLOCK 128
-splitcounter:   .BLOCK 1
 ;-------------------------------------------------------------
 ; Code: END
 ;-------------------------------------------------------------
