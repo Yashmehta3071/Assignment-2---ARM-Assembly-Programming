@@ -11,7 +11,7 @@
 PUSH {R0}                           ; Preserve register R0
 MOV R0, #secondsCounter             ; Save address of secondsCounter function
 STR R0, .ClockISR                   ; Store address in .ClockISR variable
-MOV R0, #1000                       ; Set clock interrupt frequency to 1000 (1ms)
+MOV R0, #1000                       ; Set clock interrupt frequency to 1000ms (1s)
 STR R0, .ClockInterruptFrequency    ; Store frequency in .ClockInterruptFrequency variable
 
 ;-------------------------------------------------------------
@@ -19,7 +19,7 @@ STR R0, .ClockInterruptFrequency    ; Store frequency in .ClockInterruptFrequenc
 ;-------------------------------------------------------------
 
 MOV R0, #keyboardHandler             ; Save address of keyboardHandler function
-STR R0, .KeyboardISR                 ; Store address in .KeyboardISR variable
+STR R0, .KeyboardISR                 ; Assign keyboardHandler to .KeyboardISR variable
 MOV R0, #1                          ; Enable keyboard interrupt mask
 STR R0, .KeyboardMask               ; Store mask value in .KeyboardMask variable
 
@@ -63,6 +63,29 @@ writeOut:
     RET                              ; Return from the function
 
 ;-------------------------------------------------------------
+; Function: writeStatus
+; Purpose: Display the current clock status
+; Inputs: None
+; Outputs: None
+;-------------------------------------------------------------
+
+writeStatus:
+    push {R3, LR}                   ; Preserve R3 and LR
+    BL newline                      ; Print a new lines
+    MOV R0, #instructions           ; Store address of instructions string in R0
+    STR R0, .WriteString            ; Print instructions
+    CMP R3, #0                      ; Check if clock state is 0 (stopped)
+    BEQ writeStopped                ; If stopped, branch to writeStopped
+    MOV R3, #startmsg               ; If running, set status message to startmsg
+    B writeStatusEnd                ; Branch to writeStatusEnd
+writeStopped:                       ;
+    MOV R3, #stopmsg                ; If stopped, set status message to stopmsg
+writeStatusEnd:                     ;
+    STR R3, .WriteString            ; Print status message
+    pop {R3, LR}                    ; Restore R3 and LR
+    RET                             ; Return from the function
+
+;-------------------------------------------------------------
 ; Function: newline
 ; Purpose: Print a new line
 ; Inputs: None
@@ -76,29 +99,6 @@ newline:
     STR R0, .WriteChar              ; Print newline character (twice for formatting)
     STR R0, .WriteChar              ; Print newline character (twice for formatting)
     pop {R0}                        ; Restore register R0
-    RET                             ; Return from the function
-
-;-------------------------------------------------------------
-; Function: writeStatus
-; Purpose: Display the current clock status
-; Inputs: None
-; Outputs: None
-;-------------------------------------------------------------
-
-writeStatus:
-    push {R3, LR}                   ; Preserve R3 and LR
-    BL newline                      ; Print a new line
-    MOV R0, #instructions           ; Store address of instructions string in R0
-    STR R0, .WriteString            ; Print instructions
-    CMP R3, #0                      ; Check if clock state is 0 (stopped)
-    BEQ writeStopped                ; If stopped, branch to writeStopped
-    MOV R3, #startmsg               ; If running, set status message to startmsg
-    B writeStatusEnd                ; Branch to writeStatusEnd
-writeStopped:                       ;
-    MOV R3, #stopmsg                ; If stopped, set status message to stopmsg
-writeStatusEnd:                     ;
-    STR R3, .WriteString            ; Print status message
-    pop {R3, LR}                    ; Restore R3 and LR
     RET                             ; Return from the function
 
 ;-------------------------------------------------------------
