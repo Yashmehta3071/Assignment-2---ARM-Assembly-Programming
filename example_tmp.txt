@@ -1,0 +1,159 @@
+; Constants
+KEYBOARD_BASE   EQU 0x20000000      ; Memory-mapped keyboard base address
+SCREEN_BASE     EQU 0x20000010      ; Memory-mapped screen base address
+clock_state     EQU 0x20000020      ; Memory location for clock state
+minutes         EQU 0x20000024      ; Memory location for minutes
+seconds         EQU 0x20000028      ; Memory location for seconds
+split_minutes   EQU 0x2000002C      ; Memory location for split minutes
+split_seconds   EQU 0x20000030      ; Memory location for split seconds
+
+; Keyboard constants
+KEY_T           EQU 0x10            ; T key
+KEY_R           EQU 0x11            ; R key
+KEY_S           EQU 0x1B            ; S key
+
+;-------------------------------------------------------------
+; Function: WriteChar
+; Purpose: Write a character to the screen
+; Inputs: r0 - character to write
+;-------------------------------------------------------------
+WriteChar:
+    STR r0, [SCREEN_BASE]           ; Store the character in the screen base address
+    BX lr                           ; Return using the link register
+
+;-------------------------------------------------------------
+; Function: WriteUnsignedNum
+; Purpose: Write an unsigned number to the screen
+; Inputs: r0 - unsigned number to write
+;-------------------------------------------------------------
+WriteUnsignedNum:
+    PUSH {r1, r2, r3}                ; Preserve registers r1, r2, and r3
+
+    MOV r1, #0                      ; Set r1 to 0 for division calculation
+    MOV r2, #10                     ; Set r2 to 10 for division by 10
+    MOV r3, #10                     ; Set r3 to 10 for number display
+
+divide_loop:
+    SDIV r0, r0, r2                 ; Divide r0 by r2
+    ADD r0, r0, #48                 ; Convert remainder to ASCII character
+    STR r0, [SCREEN_BASE]           ; Store the character in the screen base address
+
+    SUB r1, r1, #1                  ; Decrement r1 by 1
+    CMP r1, #0                      ; Compare r1 with 0
+    BNE divide_loop                 ; If r1 is not zero, continue division
+
+    ADD r0, r3, #48                 ; Convert quotient to ASCII character
+    STR r0, [SCREEN_BASE]           ; Store the character in the screen base address
+
+    POP {r1, r2, r3}                 ; Restore registers r1, r2, and r3
+    BX lr                            ; Return using the link register
+
+;-------------------------------------------------------------
+; Function: update_time
+; Purpose: Update the time (increment seconds and minutes)
+;-------------------------------------------------------------
+update_time:
+    LDR r0, [seconds]                ; Load the current value of seconds
+    ADD r0, r0, #1                   ; Increment seconds by 1
+    CMP r0, #60                      ; Check if seconds have reached 60
+    BNE skip_minutes                 ; If not, skip minutes update
+
+    LDR r0, [minutes]                ; Load the current value of minutes
+    ADD r0, r0, #1                   ; Increment minutes by 1
+    STR r0, [minutes]                ; Store the updated value of minutes
+
+    MOV r0, #0                       ; Reset seconds to 0
+    STR r0, [seconds]                ; Store the updated value of seconds
+
+skip_minutes:
+    STR r0, [seconds]                ; Store the updated value of seconds
+    BX lr                            ; Return using the link register
+
+;-------------------------------------------------------------
+; Function: start_stopwatch
+; Purpose: Start or stop the stopwatch
+; Inputs: r0 - clock state (0 - off, 1 - on)
+;-------------------------------------------------------------
+start_stopwatch:
+    STR r0, [clock_state]            ; Store the clock state in memory
+    ; Additional code to handle stopwatch start/stop logic
+
+    BX lr                           ; Return using the link register
+
+;-------------------------------------------------------------
+; Function: reset_stopwatch
+; Purpose: Reset the stopwatch (set minutes and seconds to 0)
+;-------------------------------------------------------------
+reset_stopwatch:
+    MOV r0, #0                      ; Reset minutes to 0
+    STR r0, [minutes]               ; Store the updated value of minutes
+
+    MOV r0, #0                      ; Reset seconds to 0
+    STR r0, [seconds]               ; Store the updated value of seconds
+
+    BX lr                           ; Return using the link register
+
+;-------------------------------------------------------------
+; Function: split_stopwatch
+; Purpose: Record the split time of the stopwatch
+; Outputs: r0 - split minutes, r1 - split seconds
+;-------------------------------------------------------------
+split_stopwatch:
+    LDR r0, [clock_state]            ; Load the clock state from memory
+    CMP r0, #1                      ; Compare the clock state with 1 (on)
+    BNE split_not_allowed           ; If the clock is not on, skip recording split time
+
+    LDR r0, [minutes]               ; Load the current value of minutes
+    LDR r1, [seconds]               ; Load the current value of seconds
+
+    STR r0, [split_minutes]         ; Store the split minutes
+    STR r1, [split_seconds]         ; Store the split seconds
+
+split_not_allowed:
+    ; Code to handle split not allowed condition (e.g., display an error message)
+
+    BX lr                           ; Return using the link register
+
+;-------------------------------------------------------------
+; Main program
+;-------------------------------------------------------------
+main:
+    MOV r0, #0                      ; Initialize clock state to 0 (off)
+    STR r0, [clock_state]           ; Store the initial clock state
+
+loop:
+    LDR r0, [KEYBOARD_BASE]         ; Read the keyboard input
+
+    CMP r0, #KEY_T                  ; Check if T key is pressed
+    BEQ toggle_stopwatch            ; If so, toggle the stopwatch
+
+    CMP r0, #KEY_R                  ; Check if R key is pressed
+    BEQ reset_stopwatch             ; If so, reset the stopwatch
+
+    CMP r0, #KEY_S                  ; Check if S key is pressed
+    BEQ split_stopwatch             ; If so, record split time
+
+    ; Code to handle other program logic
+
+    ; Update time every second
+    LDR r0, [seconds]               ; Load the current value of seconds
+    CMP r0, #59                     ; Check if seconds is 59
+    BNE skip_update_time            ; If not, skip time update
+
+    BL update_time                  ; Call the update_time function
+
+skip_update_time:
+    ; Code to handle other program logic
+
+    B loop                          ; Branch back to the main loop
+
+toggle_stopwatch:
+    LDR r0, [clock_state]           ; Load the current clock state
+
+    CMP r0, #0                      ; Check if the clock is off
+    BEQ start_stopwatch             ; If so, start the stopwatch
+
+    MOV r0, #0                      ; If the clock is on, stop the stopwatch
+    STR r0, [clock_state]           ; Store the updated clock state
+
+    BX lr                           ; Return using the link register
