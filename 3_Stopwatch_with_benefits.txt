@@ -194,13 +194,10 @@ splitTime:
     CMP R3, #0                      ; Check current clock state (R3)
     BEQ splitTimeEnd                ; If equal to 0 (stopped), branch to splitTimeEnd
     push {R0-R3}                    ; Preserve registers R0-R3
-
     MOV R0, #minutearray            ; Store array base address for minutes
     STRB R1, [R0]                   ; Store value of R1 into minutearray
-
     MOV R0, #seccondsarray          ; Store array base address for minutes
     STRB R2, [R0]                   ; Store value of R1 into minutearray
-    
     pop {R0-R3}                     ; Restore registers R0-R3
 splitTimeEnd:                       ;
     RET                             ; Return from the function
