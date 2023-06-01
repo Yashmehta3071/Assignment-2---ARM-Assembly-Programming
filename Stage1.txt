@@ -1,0 +1,55 @@
+  1|// Set up Interrupt handling
+  2|      MOV R0,#toggleClock
+  3|      STR R0,.KeyboardISR
+  4|      MOV R0, #1
+  5|      STR R0, .KeyboardMask
+  6|      STR R0, .InterruptRegister
+  7|      MOV R3, #1        // R3 keeps track of state of clock
+  8|//
+  9|//
+ 10|mainProgram:
+ 11|// MOV R0, #0
+ 12|//BL newline
+ 13|// STR R0, .WriteUnsignedNum
+ 14|      B mainProgram
+ 15|//
+ 16|//
+ 17|//newline printer
+ 18|newline:
+ 19|      push {R4}         // Save R4
+ 20|      MOV R4, #0x0A     // Add /n to R4
+ 21|      STR R4, .WriteChar // Print empty line
+ 22|      STR R4, .WriteChar // Print empty line
+ 23|      pop {R4}          // reset R4
+ 24|      RET
+ 25|//
+ 26|//
+ 27|writeMsg:
+ 28|      push {LR}
+ 29|      BL newline
+ 30|      pop {LR}
+ 31|      STR R0, .WriteString // Print msg
+ 32|      RET
+ 33|//
+ 34|//
+ 35|// interrupt handler: 
+ 36|toggleClock:
+ 37|      PUSH {R0}
+ 38|      LDR R0, .LastKey  // Get last pressed key
+ 39|      CMP R0, #0x53     // Check if pressed key is "s"
+ 40|      BNE end           // If not end this function
+ 41|      CMP R3, #0        // check state
+ 42|      BNE stop          // if R3=1 stop the clock
+ 43|      MOV R3, #1        // if R3 0, then 1
+ 44|      MOV R0, #startmsg // add write message
+ 45|      BL writeMsg
+ 46|      B end
+ 47|stop:
+ 48|      MOV R3, #0        // if R3 1, then 0
+ 49|      MOV R0, #stopmsg
+ 50|      BL writeMsg
+ 51|end:
+ 52|      pop {R0}
+ 53|      RFE
+ 54|startmsg: .ASCIZ "In Start State\n"
+ 55|stopmsg: .ASCIZ "In Stop State\n"

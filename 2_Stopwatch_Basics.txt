@@ -1,0 +1,152 @@
+  1|// T - to start/stop clock
+  2|// R - to reset clock
+  3|// S - to split time
+  4|// R1 - keeps track of minutes
+  5|// R2 - keeps track of seconds
+  6|// R3 - keeps track of ON/OFF status
+  7|// R4 - keeps track of status message
+  8|//
+  9|//
+ 10|// Set up Interrupt handling
+ 11|//// Clock Interrupt Handler
+ 12|      push {R0}
+ 13|      MOV R0,#secondsCounter
+ 14|      STR R0,.ClockISR
+ 15|      MOV R0,#1000
+ 16|      STR R0,.ClockInterruptFrequency
+ 17|      MOV R1, #0        // R1 keeps track of minutes
+ 18|      MOV R2, #0        // R2 keeps track of seconds
+ 19|//// Keyboard Interrupt handler
+ 20|      MOV R0,#keyboardHandler
+ 21|      STR R0,.KeyboardISR
+ 22|      MOV R0, #1
+ 23|      STR R0, .KeyboardMask
+ 24|//// Enable both interrupts
+ 25|      MOV R0, #3        ; Set bits 0 and 1
+ 26|      STR R0, .InterruptRegister
+ 27|      MOV R3, #1        // R3 keeps track of state of clock
+ 28|      pop {R0}
+ 29|//
+ 30|//
+ 31|mainProgram:
+ 32|      B mainProgram
+ 33|//
+ 34|//
+ 35|writeOut:
+ 36|      push {R0-R3, LR}
+ 37|      BL writeStatus
+ 38|      BL writeTime
+ 39|      pop {R0-R3, LR}
+ 40|      RET
+ 41|//
+ 42|//
+ 43|newline:
+ 44|      push {R0}         // Save R4
+ 45|      MOV R0, #0x0A     // Add /n to R4
+ 46|      STR R0, .WriteChar // Print empty line
+ 47|      STR R0, .WriteChar // Print empty line
+ 48|      STR R0, .WriteChar // Print empty line
+ 49|      pop {R0}          // reset R4
+ 50|      RET
+ 51|//
+ 52|//
+ 53|writeStatus:
+ 54|      push {R3, LR}
+ 55|      BL newline
+ 56|      CMP R3, #0
+ 57|      BEQ writeStopped
+ 58|      MOV R3, #startmsg
+ 59|      B writeStatusEnd
+ 60|writeStopped:
+ 61|      MOV R3, #stopmsg
+ 62|writeStatusEnd:
+ 63|      STR R3, .WriteString // Print msg
+ 64|      pop {R3, LR}
+ 65|      RET
+ 66|//
+ 67|//
+ 68|writeTime:
+ 69|      push {R0, LR}
+ 70|      MOV R0, R1        // minutes to R0
+ 71|      STR R0, .WriteUnsignedNum
+ 72|      MOV R0, #58       // ASCII code for ':'
+ 73|      STR R0, .WriteChar
+ 74|      MOV R0, R2        // seconds to R0
+ 75|      STR R0, .WriteUnsignedNum
+ 76|      pop {R0, LR}
+ 77|      RET
+ 78|//
+ 79|//
+ 80|updateTime:
+ 81|      ADD R2, R2, #1    ; increment secods
+ 82|      CMP R2, #60       ; Compare R2 with 60
+ 83|      BNE notSixty      ; if r2 is not equal to 60, branch to not sixty
+ 84|      ADD R1, R1, #1    ; increment minutes
+ 85|      MOV R2, #0        ; reset seconds to 0
+ 86|notSixty:
+ 87|      push {R0-R3, LR}
+ 88|      BL writeOut
+ 89|      pop {R0-R3, LR}
+ 90|      RET
+ 91|//
+ 92|//
+ 93|toggleClock:
+ 94|      CMP R3, #0        // check state
+ 95|      BNE stop          // if R3=1 stop the clock
+ 96|      MOV R3, #1        // if R3 0, then 1
+ 97|      B toggleClockEnd
+ 98|stop:
+ 99|      MOV R3, #0        // if R3 1, then 0
+100|toggleClockEnd:
+101|      RET
+102|//
+103|//
+104|resetClock:
+105|      MOV R1, #0
+106|      MOV R2, #0
+107|      RET
+108|//
+109|//
+110|splitTime:
+111|      push {R0-R3}
+112|      pop {R0-R3}
+113|      RET
+114|//
+115|//
+116|// interrupt handlers
+117|//
+118|//
+119|secondsCounter:
+120|      CMP R3, #1
+121|      BNE secondsCounterEnd
+122|      push {R3, R4, LR}
+123|      BL updateTime
+124|      pop {R3, R4, LR}
+125|secondsCounterEnd:
+126|      RFE
+127|//
+128|//
+129|keyboardHandler:
+130|      PUSH {R0}
+131|      LDR R0, .LastKey  // Get last pressed key
+132|      CMP R0, #0x54     // Check if pressed key is "t"
+133|      BNE elif1
+134|      BL toggleClock
+135|      B keyboardHandlerEnd
+136|elif1:
+137|      CMP R0, #0x52     // R
+138|      BNE elif2
+139|      BL resetClock
+140|      B keyboardHandlerEnd
+141|elif2:
+142|      CMP R0, #0x53     // S
+143|      BNE keyboardHandlerEnd
+144|      BL splitTime
+145|keyboardHandlerEnd:
+146|      BL writeOut
+147|      pop {R0}
+148|      RFE
+149|startmsg: .ASCIZ "Clock Started\n"
+150|stopmsg: .ASCIZ "Clock Stopped\n"
+151|minutearray: .BLOCK 128
+152|seccondsarray: .BLOCK 128
